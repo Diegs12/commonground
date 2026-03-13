@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import { NarrativeSection } from "@/components/NarrativeSection";
 import { TopicTag } from "@/components/TopicTag";
 import { SourceList } from "@/components/SourceList";
@@ -9,21 +8,26 @@ import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 async function getStory(slug: string) {
-  return prisma.story.findUnique({
-    where: { slug },
-    include: {
-      topics: {
-        include: { topic: { select: { id: true, name: true, slug: true, icon: true } } },
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    return prisma.story.findUnique({
+      where: { slug },
+      include: {
+        topics: {
+          include: { topic: { select: { id: true, name: true, slug: true, icon: true } } },
+        },
+        sourceArticles: {
+          select: { id: true, title: true, url: true, sourceName: true, sourceBias: true },
+          orderBy: { sourceBias: "asc" },
+        },
       },
-      sourceArticles: {
-        select: { id: true, title: true, url: true, sourceName: true, sourceBias: true },
-        orderBy: { sourceBias: "asc" },
-      },
-    },
-  });
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

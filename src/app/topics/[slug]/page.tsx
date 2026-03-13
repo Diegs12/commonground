@@ -1,40 +1,56 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import { StoryCard } from "@/components/StoryCard";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const topic = await prisma.topic.findUnique({ where: { slug } });
-  if (!topic) return { title: "Topic Not Found" };
-  return {
-    title: `${topic.name} | CommonGround`,
-    description: topic.description,
-  };
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const topic = await prisma.topic.findUnique({ where: { slug } });
+    if (!topic) return { title: "Topic Not Found" };
+    return {
+      title: `${topic.name} | CommonGround`,
+      description: topic.description,
+    };
+  } catch {
+    return { title: "Topic Not Found" };
+  }
 }
 
 export default async function TopicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const topic = await prisma.topic.findUnique({ where: { slug } });
-  if (!topic) notFound();
 
-  const stories = await prisma.story.findMany({
-    where: {
-      status: "PUBLISHED",
-      topics: { some: { topicId: topic.id } },
-    },
-    include: {
-      topics: {
-        include: { topic: { select: { id: true, name: true, slug: true, icon: true } } },
+  let topic: { id: string; slug: string; icon: string | null; name: string; description: string | null } | null = null;
+  let stories: { id: string; headline: string; summary: string; slug: string; publishedAt: Date | null; sourceArticleCount: number; topics: { topic: { id: string; name: string; slug: string; icon: string | null } }[] }[] = [];
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    topic = await prisma.topic.findUnique({ where: { slug } });
+    if (!topic) notFound();
+
+    stories = await prisma.story.findMany({
+      where: {
+        status: "PUBLISHED",
+        topics: { some: { topicId: topic.id } },
       },
-    },
-    orderBy: { publishedAt: "desc" },
-    take: 30,
-  });
+      include: {
+        topics: {
+          include: { topic: { select: { id: true, name: true, slug: true, icon: true } } },
+        },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: 30,
+    });
+  } catch (e) {
+    // If it's a Next.js notFound redirect, re-throw it
+    if (e && typeof e === "object" && "digest" in e) throw e;
+    // Database unavailable — show not found
+    notFound();
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">

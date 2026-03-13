@@ -1,13 +1,18 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function TopicsPage() {
-  const topics = await prisma.topic.findMany({
-    where: { parentTopicId: null },
-    orderBy: { name: "asc" },
-  });
+  let topics: { id: string; slug: string; icon: string | null; name: string; description: string | null }[] = [];
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    topics = await prisma.topic.findMany({
+      where: { parentTopicId: null },
+      orderBy: { name: "asc" },
+    });
+  } catch {
+    // Database unavailable — render empty state
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">

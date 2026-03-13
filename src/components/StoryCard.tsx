@@ -13,7 +13,7 @@ interface StoryCardProps {
     publishedAt: string | null;
     sourceArticleCount: number;
     topics: {
-      topic: { name: string; slug: string; icon: string };
+      topic: { name: string; slug: string; icon: string | null };
     }[];
   };
 }

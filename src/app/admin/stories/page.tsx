@@ -1,11 +1,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+
+export const dynamic = "force-dynamic";
 
 const statusColors: Record<string, string> = {
   PUBLISHED: "bg-emerald-100 text-emerald-700",
@@ -28,14 +29,20 @@ export default async function AdminStoriesPage({
   const where: Record<string, unknown> = {};
   if (sp.status) where.status = sp.status;
 
-  const stories = await prisma.story.findMany({
-    where,
-    include: {
-      topics: { include: { topic: { select: { name: true, slug: true } } } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  let stories: { id: string; headline: string; summary: string; status: string; confidenceScore: number; createdAt: Date; topics: { topic: { name: string; slug: string } }[] }[] = [];
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    stories = await prisma.story.findMany({
+      where,
+      include: {
+        topics: { include: { topic: { select: { name: true, slug: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+  } catch {
+    // Database unavailable — render empty state
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
